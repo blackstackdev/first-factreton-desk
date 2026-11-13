@@ -1,5 +1,8 @@
 name: Deliver queued desk notifications
 on:
+  push:
+    branches: [gh-pages]
+    paths: [.github/workflows/dispatch-mail.yml]
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
