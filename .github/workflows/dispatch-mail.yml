@@ -1,0 +1,28 @@
+name: Deliver queued desk notifications
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: desk-mail
+  cancel-in-progress: false
+jobs:
+  deliver:
+    if: vars.FFDESK_MAIL_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Dispatch pending updates
+        env:
+          DISPATCH_URL: ${{ vars.FFDESK_MAIL_URL }}
+          WORKER_KEY: ${{ secrets.FFDESK_WORKER_KEY }}
+        shell: bash
+        run: |
+          set -eu
+          test -n "$DISPATCH_URL" && test -n "$WORKER_KEY"
+          case "$DISPATCH_URL" in https://*.supabase.co/functions/v1/ffdesk-notify) ;; *) exit 1;; esac
+          response=$(curl --silent --show-error --fail-with-body --max-time 100 \
+            --request POST --header "x-ffdesk-worker: $WORKER_KEY" \
+            --header 'content-type: application/json' --data '{}' "$DISPATCH_URL")
+          RESPONSE="$response" python3 -c 'import os,json,sys; r=json.loads(os.environ["RESPONSE"]); ok=r.get("configured") and not r.get("failed"); print("Mail dispatch completed" if ok else "Mail dispatch needs attention"); sys.exit(0 if ok else 1)'
